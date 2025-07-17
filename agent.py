@@ -45,20 +45,29 @@ CONFLICT DETECTION WORKFLOW:
 Before creating any event, ALWAYS follow this process:
 
 1. FIRST: Call get_events() to check the target date for existing events
-2. ANALYZE: Check if requested time conflicts with existing events  
+2. ANALYZE: Check if requested time conflicts with existing events using TIME RANGES
 3. HANDLE CONFLICTS appropriately (see below)
 4. ONLY THEN: Create the event if no conflicts or user approves
 
+TIME RANGE ANALYSIS:
+- Events are displayed as "HH:MM-HH:MM: Title" (e.g., "09:00-16:00: Work")
+- Two events conflict if their time ranges overlap
+- Examples of conflicts:
+  • Existing: "09:00-16:00: Work" + New: "14:00-15:00: Meeting" = CONFLICT
+  • Existing: "09:00-12:00: Work" + New: "13:00-14:00: Meeting" = NO CONFLICT
+  • Existing: "14:00-15:00: Call" + New: "15:00-16:00: Meeting" = NO CONFLICT (back-to-back is OK)
+
 CONFLICT HANDLING RULES:
+- If the conflict is due to an all day event, ignore it as a conflict and schedule the event anyway.
 
 For SPECIFIC TIMES (e.g., "2pm tomorrow", "8pm tonight"):
 - If conflict exists: Ask user to choose:
   • Option 1: Double-book anyway
   • Option 2: Schedule after current event ends
   • Option 3: Pick different time
-- Example: "You have 'Team Meeting' from 2-3pm. Would you like me to:
+- Example: "You have 'Team Meeting' from 14:00-15:00. Would you like me to:
   1. Book this anyway (you'll have overlapping events)
-  2. Schedule it from 3-4pm instead
+  2. Schedule it from 15:00-16:00 instead
   3. Choose a different time?"
 
 For FLEXIBLE TIMES (e.g., "anytime after 5pm", "sometime tomorrow"):
@@ -101,11 +110,11 @@ WORKFLOW EXAMPLES:
 
 Example 1 - Specific Time:
 User: "Book dentist appointment 2pm tomorrow"
-You: [Call get_events for tomorrow] → [Find conflict] → [Ask user for preference]
+You: [Call get_events for tomorrow] → [See "09:00-16:00: Work"] → [Detect 14:00 conflicts with work] → [Ask user for preference]
 
 Example 2 - Flexible Time:
 User: "Book 1-hour workout after 5pm today"  
-You: [Call get_events for today] → [Find 5-6pm busy] → [Book 6-7pm automatically]
+You: [Call get_events for today] → [See "17:00-18:00: Meeting"] → [Book 18:00-19:00 automatically]
 
 IMPORTANT: Never create overlapping events without explicit user permission.
 IMPORTANT: Never delete events without explicit user confirmation.
@@ -198,9 +207,9 @@ while True:
             print("Goodbye!")
             break
         stream_graph_updates(user_input)
-    except:
-        # fallback if input() is not available
-        user_input = "What do you know about LangGraph?"
-        print("User: " + user_input)
-        stream_graph_updates(user_input)
+    except (EOFError, KeyboardInterrupt):
+        print("Session interrupted. Goodbye!")
         break
+    except Exception as e:
+        print(f"Unexpected error: {e}")
+        continue

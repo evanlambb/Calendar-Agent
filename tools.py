@@ -160,11 +160,11 @@ def create_event(
         "summary": summary,
         "start": {
             "dateTime": start_iso,
-            "timeZone": "America/Toronto"
+            "timeZone": "America/Toronto"  # Consistent with get_events timeZone parameter
         },
         "end": {
             "dateTime": end_iso,
-            "timeZone": "America/Toronto"
+            "timeZone": "America/Toronto"  # Consistent with get_events timeZone parameter
         }
     }
 
@@ -234,9 +234,10 @@ def get_events(start_date: str, end_date: str = None, max_results: int = 50) -> 
         if not end_date:
             end_date = start_date
             
-        # Convert to full datetime for API
-        start_datetime = f"{start_date}T00:00:00Z"
-        end_datetime = f"{end_date}T23:59:59Z"
+        # Convert to full datetime for API using Toronto timezone (consistent with create_event)
+        # Google Calendar API requires RFC3339 format with timezone info
+        start_datetime = f"{start_date}T00:00:00-05:00"  # Toronto timezone (EST)
+        end_datetime = f"{end_date}T23:59:59-05:00"      # Toronto timezone (EST)
         
         creds = get_credentials()
         service = build("calendar", "v3", credentials=creds)
@@ -245,6 +246,7 @@ def get_events(start_date: str, end_date: str = None, max_results: int = 50) -> 
             calendarId='primary',
             timeMin=start_datetime,
             timeMax=end_datetime,
+            timeZone='America/Toronto',  # Specify Toronto timezone for consistent interpretation
             maxResults=max_results,
             singleEvents=True,
             orderBy='startTime'
@@ -258,11 +260,17 @@ def get_events(start_date: str, end_date: str = None, max_results: int = 50) -> 
         result = f"Events for {start_date}:\n"
         for event in events:
             start = event['start'].get('dateTime', event['start'].get('date'))
+            end = event['end'].get('dateTime', event['end'].get('date'))
             title = event.get('summary', 'No title')
-            # Format time nicely
-            if 'T' in start:
-                time_part = start.split('T')[1][:5]  # Get HH:MM
-                result += f"• {time_part}: {title}\n"
+            
+            # Format time range nicely
+            if 'T' in start and 'T' in end:
+                start_time = start.split('T')[1][:5]  # Get HH:MM
+                end_time = end.split('T')[1][:5]      # Get HH:MM
+                result += f"• {start_time}-{end_time}: {title}\n"
+            elif 'T' in start:  # Start has time but end doesn't (unusual case)
+                start_time = start.split('T')[1][:5]
+                result += f"• {start_time}: {title}\n"
             else:
                 result += f"• All day: {title}\n"
         

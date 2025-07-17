@@ -32,6 +32,7 @@ Thumbs.db
 
 # Logs
 *.log
+calendar_agent.log
 
 # Local development files
 .pytest_cache/
