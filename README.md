@@ -29,6 +29,7 @@ cd calendar-agent
 
 ### 2. Install Dependencies
 ```bash
+cd backend
 pip install -r requirements.txt
 ```
 
@@ -47,6 +48,7 @@ GOOGLE_API_KEY=your_gemini_api_key_here
 
 ### 5. Run the Agent
 ```bash
+cd backend
 python agent.py
 ```
 
@@ -116,18 +118,41 @@ Assistant: ✅ Event 'Dentist Appointment' has been deleted successfully!
 - **Flexible Scheduling**: Automatically finds available time slots
 - **Error Handling**: Graceful handling of API errors and edge cases
 
+## 📁 Project Structure
+
+```
+Calendar-Agent/
+├── backend/             # Python backend code
+│   ├── agent.py        # Main LangGraph agent
+│   ├── tools.py        # Google Calendar tools
+│   ├── config.py       # Configuration management
+│   └── requirements.txt # Backend dependencies
+├── mobile/             # React Native app (coming soon)
+├── tests/              # Test files
+│   ├── test_create_event.py
+│   ├── test_delete_event.py
+│   └── test_timezone_fix.py
+├── docs/               # Documentation
+│   ├── PROJECT_ROADMAP.md
+│   ├── LANGSMITH_SETUP.md
+│   └── RECOMMENDED_FILE_STRUCTURE.md
+└── README.md           # This file
+```
+
 ## 🧪 Testing
 
 Run the test scripts:
 ```bash
+cd tests
+
 # Test event creation
 python test_create_event.py
 
 # Test event deletion workflow  
 python test_delete_event.py
 
-# Demonstrate @tool decorator benefits
-python demonstrate_tool_decorator.py
+# Test timezone fixes
+python test_timezone_fix.py
 ```
 
 ## 🔐 Security Notes
@@ -143,7 +168,7 @@ python demonstrate_tool_decorator.py
 - ✅ Natural language processing
 - ✅ Conflict detection and resolution
 - ✅ Safe deletion workflow
-- 🔄 Future: Mobile React Native app integration
+- 🔄 In Progress: Mobile React Native app (see `docs/PROJECT_ROADMAP.md`)
 
 ## 📝 License
 

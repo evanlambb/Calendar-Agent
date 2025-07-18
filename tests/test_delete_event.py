@@ -3,8 +3,8 @@
 Test script for delete_event functionality
 """
 
-from tools import delete_event, get_events, create_event
 import datetime as dt
+from tools import delete_event, get_events, create_event
 
 def test_delete_workflow():
     """Test the complete delete event workflow"""

@@ -8,30 +8,39 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from langchain.tools import tool
+from config import CalendarConfig
+from utils import get_credentials_path, get_token_path, ensure_credentials_exist
 
-SCOPES = ["https://www.googleapis.com/auth/calendar"]
+# Initialize configuration
+config = CalendarConfig()
+SCOPES = config.CALENDAR_SCOPES
 
 def get_credentials():
   """
   Allows me to access my google calendar from API
+  Uses absolute paths that work from any directory
   """
+  # Get absolute paths to credentials and token files
+  credentials_path = ensure_credentials_exist()  # Also checks if file exists
+  token_path = get_token_path()
+  
   creds = None
   # The file token.json stores the user's access and refresh tokens, and is
   # created automatically when the authorization flow completes for the first
   # time.
-  if os.path.exists("token.json"):
-    creds = Credentials.from_authorized_user_file("token.json", SCOPES)
+  if os.path.exists(token_path):
+    creds = Credentials.from_authorized_user_file(token_path, SCOPES)
   # If there are no (valid) credentials available, let the user log in.
   if not creds or not creds.valid:
     if creds and creds.expired and creds.refresh_token:
       creds.refresh(Request())
     else:
       flow = InstalledAppFlow.from_client_secrets_file(
-          "credentials.json", SCOPES
+          credentials_path, SCOPES
       )
       creds = flow.run_local_server(port=0)
     # Save the credentials for the next run
-    with open("token.json", "w") as token:
+    with open(token_path, "w") as token:
       token.write(creds.to_json())
   
   return creds

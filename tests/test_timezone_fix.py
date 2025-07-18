@@ -3,8 +3,8 @@
 Test script to verify timezone fix for conflict detection
 """
 
-from tools import get_events, get_current_datetime
 import datetime as dt
+from tools import get_events, get_current_datetime
 
 def test_timezone_consistency():
     """Test that get_events now properly handles Toronto timezone"""

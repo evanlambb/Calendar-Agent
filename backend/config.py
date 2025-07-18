@@ -42,8 +42,12 @@ class CalendarConfig:
         try:
             import pytz
             pytz.timezone(cls.TIMEZONE)
-        except:
+        except ImportError:
+            errors.append("pytz library not installed - run: pip install pytz>=2023.3")
+        except pytz.UnknownTimeZoneError:
             errors.append(f"Invalid timezone: {cls.TIMEZONE}")
+        except Exception as e:
+            errors.append(f"Timezone validation error: {e}")
             
         return len(errors) == 0, errors
     
