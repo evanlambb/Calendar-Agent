@@ -34,9 +34,16 @@ class CalendarConfig:
         """Validate configuration and return (is_valid, error_messages)"""
         errors = []
         
-        # Check required files exist
-        if not os.path.exists(cls.CREDENTIALS_FILE):
-            errors.append(f"Google credentials file not found: {cls.CREDENTIALS_FILE}")
+        # Check required files exist using proper path resolution
+        try:
+            from utils import get_credentials_path
+            credentials_path = get_credentials_path()
+            if not os.path.exists(credentials_path):
+                errors.append(f"Google credentials file not found: {credentials_path}")
+        except ImportError:
+            # Fallback if utils.py is not available
+            if not os.path.exists(cls.CREDENTIALS_FILE):
+                errors.append(f"Google credentials file not found: {cls.CREDENTIALS_FILE}")
             
         # Validate timezone
         try:

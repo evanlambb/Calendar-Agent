@@ -17,7 +17,8 @@
     "react-dom": "19.0.0",
     "react-native": "0.79.5",
     "react-native-safe-area-context": "5.4.0",
-    "react-native-web": "^0.20.0"
+    "react-native-web": "^0.20.0",
+    "@expo/vector-icons": "^14.1.0"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
