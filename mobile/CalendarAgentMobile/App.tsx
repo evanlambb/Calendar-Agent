@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { 
   StyleSheet, 
@@ -10,6 +10,8 @@ import {
   KeyboardAvoidingView,
   Platform,
   Alert,
+  Keyboard,
+  Dimensions,
 } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -39,6 +41,50 @@ export default function App() {
   // Voice recording state
   const [isRecording, setIsRecording] = useState(false);
   const [recordingPermission, setRecordingPermission] = useState(false);
+
+  // Keyboard state for debugging
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+
+  // Ref for ScrollView to enable auto-scrolling
+  const scrollViewRef = React.useRef<ScrollView>(null);
+
+  // Manual keyboard detection for better control
+  useEffect(() => {
+    const keyboardDidShowListener = Keyboard.addListener('keyboardDidShow', (event) => {
+      setKeyboardHeight(event.endCoordinates.height);
+      setIsKeyboardVisible(true);
+    });
+
+    const keyboardDidHideListener = Keyboard.addListener('keyboardDidHide', () => {
+      setKeyboardHeight(0);
+      setIsKeyboardVisible(false);
+    });
+
+    const keyboardWillShowListener = Keyboard.addListener('keyboardWillShow', (event) => {
+      // iOS preview event - could be used for smoother animations if needed
+    });
+
+    const keyboardWillHideListener = Keyboard.addListener('keyboardWillHide', () => {
+      // iOS preview event - could be used for smoother animations if needed
+    });
+
+    return () => {
+      keyboardDidShowListener?.remove();
+      keyboardDidHideListener?.remove();
+      keyboardWillShowListener?.remove();
+      keyboardWillHideListener?.remove();
+    };
+  }, []);
+
+  // Auto-scroll to bottom when new messages are added
+  useEffect(() => {
+    if (messages.length > 0) {
+      setTimeout(() => {
+        scrollViewRef.current?.scrollToEnd({ animated: true });
+      }, 100); // Small delay to ensure content is rendered
+    }
+  }, [messages]);
 
   // Voice recording functions
   const startVoiceRecording = async () => {
@@ -137,13 +183,23 @@ export default function App() {
           <Text style={styles.headerText}>📅 Calendar Agent</Text>
         </View>
 
-        {/* Chat Container with Keyboard Avoidance */}
-        <KeyboardAvoidingView 
-          style={styles.chatContainer}
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        >
+        {/* Chat Container with Manual Keyboard Handling */}
+        <View style={[
+          styles.chatContainer,
+          { 
+            transform: [{ translateY: isKeyboardVisible ? -keyboardHeight : 0 }]
+          }
+        ]}>
+
+          
           {/* Messages Area */}
-          <ScrollView style={styles.messagesContainer}>
+          <ScrollView 
+            ref={scrollViewRef}
+            style={styles.messagesContainer}
+            contentContainerStyle={{
+              paddingBottom: 50
+            }}
+          >
             {messages.length === 0 ? (
               // Show welcome message when no messages
               <View style={styles.welcomeContainer}>
@@ -256,7 +312,7 @@ export default function App() {
               </View>
             )}
           </View>
-        </KeyboardAvoidingView>
+        </View>
 
         <StatusBar style="auto" />
       </SafeAreaView>
