@@ -15,6 +15,8 @@ import {
 } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { Audio } from 'expo-av';
+import * as FileSystem from 'expo-file-system';
 import axios from 'axios';
 
 // API Configuration - Update this with your computer's IP address
@@ -41,6 +43,9 @@ export default function App() {
   // Voice recording state
   const [isRecording, setIsRecording] = useState(false);
   const [recordingPermission, setRecordingPermission] = useState(false);
+  const [recording, setRecording] = useState<Audio.Recording | null>(null);
+  const [recordingUri, setRecordingUri] = useState<string | null>(null);
+  const [recordingStartTime, setRecordingStartTime] = useState<number | null>(null);
 
   // Keyboard state for debugging
   const [keyboardHeight, setKeyboardHeight] = useState(0);
@@ -93,26 +98,369 @@ export default function App() {
     }, 0); // Longer delay for keyboard layout changes
   }, [isKeyboardVisible]);
 
+  // Cleanup recording on component unmount
+  useEffect(() => {
+    return () => {
+      if (recording) {
+        recording.stopAndUnloadAsync();
+      }
+    };
+  }, [recording]);
+
   // Voice recording functions
   const startVoiceRecording = async () => {
     try {
-      setIsRecording(true);
-      // TODO: Implement actual voice recording here
-      Alert.alert('Voice Recording', 'Voice recording started! (Feature coming soon)');
+      // Prevent multiple recordings
+      if (recording || isRecording) {
+        console.log('Recording already in progress');
+        return;
+      }
+
+      // Request microphone permissions with detailed checking
+      console.log('Requesting microphone permissions...');
+      const permissionResponse = await Audio.requestPermissionsAsync();
+      console.log('Permission response:', permissionResponse);
+      
+      if (permissionResponse.status !== 'granted') {
+        Alert.alert(
+          'Permission Denied', 
+          `Microphone permission is required for voice recording. Status: ${permissionResponse.status}`
+        );
+        return;
+      }
+      
+      // Additional Android info
+      if (Platform.OS === 'android') {
+        console.log('Android detected - will use LOW_QUALITY preset for better compatibility');
+      }
+
+      // Configure audio recording with better Android support
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: true,
+        playsInSilentModeIOS: true,
+        staysActiveInBackground: true,
+        shouldDuckAndroid: true,
+        playThroughEarpieceAndroid: false,
+      });
+
+      // Use simpler recording options for better Android compatibility
+      const recordingOptions = Platform.OS === 'android' 
+        ? Audio.RecordingOptionsPresets.LOW_QUALITY
+        : Audio.RecordingOptionsPresets.HIGH_QUALITY;
+
+      // Create recording with explicit preparation for Android
+      const newRecording = new Audio.Recording();
+      
+      try {
+        await newRecording.prepareToRecordAsync(recordingOptions);
+        console.log('Recording prepared successfully');
+        
+        await newRecording.startAsync();
+        console.log('Recording started successfully');
+        
+        setRecording(newRecording);
+        setIsRecording(true);
+        setRecordingStartTime(Date.now());
+      } catch (prepareError) {
+        console.error('Error preparing/starting recording:', prepareError);
+        // Fallback to createAsync method
+        const { recording: fallbackRecording } = await Audio.Recording.createAsync(recordingOptions);
+        setRecording(fallbackRecording);
+        setIsRecording(true);
+        setRecordingStartTime(Date.now());
+        console.log('Recording started with fallback method');
+      }
+      
     } catch (error) {
       console.error('Error starting voice recording:', error);
       Alert.alert('Error', 'Failed to start voice recording');
+      // Reset state on error
+      setIsRecording(false);
+      setRecording(null);
+      setRecordingStartTime(null);
     }
   };
 
   const stopVoiceRecording = async () => {
     try {
-      setIsRecording(false);
-      // TODO: Implement voice-to-text conversion here
-      Alert.alert('Voice Recording', 'Voice recording stopped! (Feature coming soon)');
+      if (!recording) {
+        console.log('No recording to stop');
+        setIsRecording(false);
+        return;
+      }
+
+      console.log('Stopping recording...');
+      
+      // Check minimum recording duration (1 second)
+      const recordingDuration = recordingStartTime ? Date.now() - recordingStartTime : 0;
+      if (recordingDuration < 1000) {
+        Alert.alert('Recording Too Short', 'Please record for at least 1 second.');
+        return;
+      }
+      
+      // Get recording status before stopping
+      const status = await recording.getStatusAsync();
+      console.log('Recording status:', status);
+      
+      // Only stop if recording is actually recording
+      if (status.isRecording) {
+        console.log('Recording duration was:', status.durationMillis, 'ms');
+        console.log('Metering level:', status.metering);
+        
+        // Stop recording with better error handling
+        await recording.stopAndUnloadAsync();
+        
+        const uri = recording.getURI();
+        console.log('Final recording URI:', uri);
+        
+        // Check if file actually exists and has content
+        if (uri) {
+          try {
+            const fileInfo = await FileSystem.getInfoAsync(uri);
+            console.log('File info:', fileInfo);
+            
+            if (fileInfo.exists) {
+              console.log('File size:', fileInfo.size, 'bytes');
+              if (fileInfo.size && fileInfo.size > 1000) { // At least 1KB
+                console.log('Valid recording file found');
+              } else {
+                console.log('Recording file is too small:', fileInfo.size, 'bytes');
+              }
+            } else {
+              console.log('Recording file does not exist at:', uri);
+            }
+          } catch (fileCheckError) {
+            console.error('Error checking file:', fileCheckError);
+          }
+        }
+        
+        // Reset audio mode
+        await Audio.setAudioModeAsync({
+          allowsRecordingIOS: false,
+        });
+        
+        // Update state
+        setRecordingUri(uri);
+        setRecording(null);
+        setIsRecording(false);
+        setRecordingStartTime(null);
+        
+        // Process the recording if we have a valid URI
+        if (uri) {
+          await processVoiceRecording(uri);
+        } else {
+          Alert.alert('Recording Error', 'No audio data was captured. Please try again.');
+        }
+      } else {
+        console.log('Recording was not in recording state');
+        // Clean up the recording object
+        await recording.stopAndUnloadAsync();
+        setRecording(null);
+        setIsRecording(false);
+        setRecordingStartTime(null);
+        Alert.alert('Recording Error', 'Recording was not active. Please try again.');
+      }
+      
     } catch (error) {
       console.error('Error stopping voice recording:', error);
-      Alert.alert('Error', 'Failed to stop voice recording');
+      
+      // Always reset state on error
+      setIsRecording(false);
+      setRecording(null);
+      setRecordingStartTime(null);
+      
+      // Show user-friendly error message
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      if (errorMessage.includes('no valid audio data')) {
+        Alert.alert('Recording Too Short', 'Please record for at least 1 second and try again.');
+      } else {
+        Alert.alert('Recording Error', 'Failed to stop recording. Please try again.');
+      }
+    }
+  };
+
+  const processVoiceRecording = async (uri: string) => {
+    try {
+      // Get file info for display
+      const fileInfo = await FileSystem.getInfoAsync(uri);
+      const fileSizeKB = fileInfo.exists && 'size' in fileInfo && fileInfo.size 
+        ? Math.round(fileInfo.size / 1024) 
+        : 0;
+      
+      Alert.alert(
+        'Recording Complete! 🎙️', 
+        `File size: ${fileSizeKB}KB\nDuration: ${recordingStartTime ? Math.round((Date.now() - recordingStartTime) / 1000) : '?'} seconds\n\nWould you like to play it back?`,
+        [
+          {
+            text: 'Play Recording',
+            onPress: () => playRecording(uri)
+          },
+          {
+            text: 'Convert to Text',
+            onPress: () => convertSpeechToText(uri)
+          },
+          {
+            text: 'Cancel',
+            style: 'cancel'
+          }
+        ]
+      );
+    } catch (error) {
+      console.error('Error processing voice recording:', error);
+    }
+  };
+
+  const playRecording = async (uri: string) => {
+    try {
+      console.log('Playing recording from:', uri);
+      
+      // Configure audio mode for playback
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: false,
+        playsInSilentModeIOS: true,
+        shouldDuckAndroid: true,
+      });
+
+      // Create and load the sound
+      const { sound } = await Audio.Sound.createAsync(
+        { uri },
+        { shouldPlay: true } // Auto-play when loaded
+      );
+
+      // Show playback controls
+      Alert.alert(
+        'Playing Recording 🔊',
+        'Audio is now playing...',
+        [
+          {
+            text: 'Stop',
+            onPress: async () => {
+              try {
+                await sound.stopAsync();
+                await sound.unloadAsync();
+                console.log('Playback stopped');
+              } catch (stopError) {
+                console.error('Error stopping playback:', stopError);
+              }
+            }
+          }
+        ]
+      );
+
+      // Auto-cleanup when playback finishes
+      sound.setOnPlaybackStatusUpdate((status) => {
+        if (status.isLoaded && status.didJustFinish) {
+          sound.unloadAsync();
+          console.log('Playback finished');
+        }
+      });
+
+    } catch (error) {
+      console.error('Error playing recording:', error);
+      Alert.alert('Playback Error', 'Could not play the recording. The file might be corrupted.');
+    }
+  };
+
+  const convertSpeechToText = async (uri: string) => {
+    try {
+      console.log('Converting speech to text from:', uri);
+      
+      // Show loading state
+      setIsLoading(true);
+      
+      // Create FormData to send the audio file
+      const formData = new FormData();
+      formData.append('audio', {
+        uri: uri,
+        type: 'audio/m4a',
+        name: 'recording.m4a',
+      } as any);
+
+      // Send to your backend for speech-to-text conversion
+      const response = await axios.post(`${API_BASE_URL}/speech-to-text`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+        timeout: 30000, // 30 second timeout for processing
+      });
+
+      if (response.data && response.data.text) {
+        const transcribedText = response.data.text.trim();
+        console.log('Transcribed text:', transcribedText);
+        
+        // Set the transcribed text as input and send it
+        setInputText(transcribedText);
+        
+        // Auto-send the message after a brief delay
+        setTimeout(() => {
+          if (transcribedText) {
+            sendMessageWithText(transcribedText);
+          }
+        }, 500);
+        
+        Alert.alert(
+          'Speech Converted! 🎯',
+          `Transcribed: "${transcribedText}"\n\nSending message...`,
+          [{ text: 'OK' }]
+        );
+      } else {
+        Alert.alert('Conversion Error', 'Could not convert speech to text. Please try again.');
+      }
+
+    } catch (error: any) {
+      console.error('Error converting speech to text:', error);
+      
+      if (error.code === 'ECONNABORTED') {
+        Alert.alert('Timeout Error', 'Speech conversion took too long. Please try a shorter recording.');
+      } else if (error.response?.status === 404) {
+        Alert.alert('Backend Error', 'Speech-to-text endpoint not found. Please set up the backend first.');
+      } else {
+        Alert.alert('Conversion Error', 'Failed to convert speech to text. Please check your connection and try again.');
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Helper function to send message with specific text
+  const sendMessageWithText = async (text: string) => {
+    if (!text.trim()) return;
+
+    const userMessage: Message = {
+      id: Date.now().toString(),
+      text: text.trim(),
+      sender: 'user',
+      timestamp: new Date(),
+    };
+
+    setMessages(prevMessages => [...prevMessages, userMessage]);
+    setInputText(''); // Clear input after sending
+
+    try {
+      const response = await axios.post(`${API_BASE_URL}/chat`, {
+        message: userMessage.text,
+        thread_id: 'mobile_user',
+      });
+
+      const assistantMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        text: response.data.response,
+        sender: 'assistant',
+        timestamp: new Date(),
+      };
+
+      setMessages(prevMessages => [...prevMessages, assistantMessage]);
+
+    } catch (error) {
+      console.error('Error sending message:', error);
+      
+      const errorMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        text: 'Sorry, I encountered an error connecting to the server. Please try again.',
+        sender: 'assistant',
+        timestamp: new Date(),
+      };
+      setMessages(prevMessages => [...prevMessages, errorMessage]);
     }
   };
 
@@ -260,7 +608,7 @@ export default function App() {
                   style={styles.voiceButtonRecording}
                   onPress={toggleVoiceRecording}
                 >
-                  <Ionicons name="stop" size={24} color="white" />
+                  <Ionicons name="stop" size={20} color="white" />
                 </TouchableOpacity>
                 <View style={styles.recordingIndicator}>
                   <Text style={styles.recordingText}>Recording...</Text>
@@ -398,9 +746,7 @@ const styles = StyleSheet.create({
   },
   textInput: {
     flex: 1,                     // Take up most space
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
-    backgroundColor: '#f8f8f8',  // Light gray background like Google Messages
+    backgroundColor: '#232a30',  // Light gray background like Google Messages
     borderRadius: 25,            // More rounded like Google Messages
     paddingHorizontal: 16,
     paddingVertical: 14,
@@ -412,9 +758,9 @@ const styles = StyleSheet.create({
 
   sendButton: {
     backgroundColor: '#007AFF',
-    borderRadius: 24,            // Circular button (increased for larger size)
-    width: 48,                   // Fixed width for circle (matches textbox height)
-    height: 48,                  // Fixed height for circle (matches textbox height)
+    borderRadius: 28,            // Larger radius to match mic button
+    width: 56,                   // Increased to match textbox visual height
+    height: 56,                  // Increased to match textbox visual height
     justifyContent: 'center',
     alignItems: 'center',
     marginLeft: 4,               // Reduced from 8 to 4
@@ -425,18 +771,18 @@ const styles = StyleSheet.create({
   },
   voiceButtonCircular: {
     backgroundColor: '#007AFF', // Blue for circular voice button
-    borderRadius: 24,           // Circular button (increased for larger size)
-    width: 48,                  // Fixed width for circle (matches textbox height)
-    height: 48,                 // Fixed height for circle (matches textbox height)
+    borderRadius: 28,           // Larger radius for bigger button
+    width: 56,                  // Increased to match textbox visual height
+    height: 56,                 // Increased to match textbox visual height
     justifyContent: 'center',
     alignItems: 'center',
     marginLeft: 4,               // Reduced from 8 to 4
   },
   voiceButtonRecording: {
     backgroundColor: '#FF3B30', // Red for recording
-    borderRadius: 20,
-    width: 40,
-    height: 40,
+    borderRadius: 28,           // Match other buttons
+    width: 56,                  // Match textbox visual height
+    height: 56,                 // Match textbox visual height
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -445,7 +791,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#f0f0f0',
     borderRadius: 25,
-    padding: 10,
+    paddingHorizontal: 6,        // Only horizontal padding for text
+    paddingVertical: 0,          // No vertical padding so button can be full height
     marginRight: 10,
   },
   recordingIndicator: {
@@ -472,3 +819,4 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
   },
 });
+
