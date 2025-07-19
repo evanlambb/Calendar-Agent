@@ -86,6 +86,13 @@ export default function App() {
     }
   }, [messages]);
 
+  // Auto-scroll to bottom when keyboard state changes
+  useEffect(() => {
+    setTimeout(() => {
+      scrollViewRef.current?.scrollToEnd({ animated: true });
+    }, 0); // Longer delay for keyboard layout changes
+  }, [isKeyboardVisible]);
+
   // Voice recording functions
   const startVoiceRecording = async () => {
     try {
@@ -184,12 +191,7 @@ export default function App() {
         </View>
 
         {/* Chat Container with Manual Keyboard Handling */}
-        <View style={[
-          styles.chatContainer,
-          { 
-            transform: [{ translateY: isKeyboardVisible ? -keyboardHeight : 0 }]
-          }
-        ]}>
+        <View style={styles.chatContainer}>
 
           
           {/* Messages Area */}
@@ -197,7 +199,7 @@ export default function App() {
             ref={scrollViewRef}
             style={styles.messagesContainer}
             contentContainerStyle={{
-              paddingBottom: 50
+              paddingBottom: isKeyboardVisible ? keyboardHeight + 30 : 30
             }}
           >
             {messages.length === 0 ? (
@@ -220,16 +222,16 @@ export default function App() {
                 >
                   <Text style={[
                     styles.messageText,
-                    { color: message.sender === 'user' ? 'white' : 'black' }
+                    { color: message.sender === 'user' ? 'white' : 'white' }
                   ]}>
                     {message.text}
                   </Text>
-                  <Text style={styles.timestamp}>
+                  {/* <Text style={styles.timestamp}>
                     {message.timestamp.toLocaleTimeString([], { 
                       hour: '2-digit', 
                       minute: '2-digit' 
                     })}
-                  </Text>
+                  </Text> */}
                 </View>
               ))
             )}
@@ -237,7 +239,7 @@ export default function App() {
             {/* Loading indicator */}
             {isLoading && (
               <View style={[styles.messageContainer, styles.assistantMessage]}>
-                <Text style={[styles.messageText, { color: 'black' }]}>
+                <Text style={[styles.messageText, { color: 'white' }]}>
                   Thinking...
                 </Text>
               </View>
@@ -245,7 +247,12 @@ export default function App() {
           </ScrollView>
 
           {/* Input Area - Google Messages Style */}
-          <View style={styles.inputContainer}>
+          <View style={[
+            styles.inputContainer,
+            { 
+              transform: [{ translateY: isKeyboardVisible ? -keyboardHeight : 0 }]
+            }
+          ]}>
             {isRecording ? (
               /* Voice Recording UI */
               <View style={styles.recordingContainer}>
@@ -273,7 +280,7 @@ export default function App() {
               <View style={styles.chatInputRow}>
                 {/* Text Input */}
                 <TextInput
-                  style={[styles.textInput, inputText.length > 0 && styles.textInputWithText]}
+                  style={styles.textInput}
                   value={inputText}
                   onChangeText={setInputText}
                   placeholder="Message"
@@ -314,7 +321,11 @@ export default function App() {
           </View>
         </View>
 
-        <StatusBar style="auto" />
+        <StatusBar 
+          style="light" 
+          backgroundColor="#101417" 
+          translucent={false}
+        />
       </SafeAreaView>
     </SafeAreaProvider>
   );
@@ -323,7 +334,7 @@ export default function App() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',  // Light gray background
+    backgroundColor: '#101417',  // Light gray background
   },
   header: {
     backgroundColor: '#007AFF',  // iOS blue
@@ -355,23 +366,23 @@ const styles = StyleSheet.create({
     lineHeight: 24,
   },
   messageContainer: {
-    marginVertical: 4,     // Space between messages
-    padding: 12,
-    borderRadius: 12,      // Rounded corners
-    maxWidth: '80%',       // Don't take full width
+    marginVertical: 6,     // Space between messages
+    paddingHorizontal: 16, // More balanced horizontal padding
+    paddingVertical: 12,   // Separate vertical padding
+    borderRadius: 25,      // Perfectly circular ends like iMessage
+    maxWidth: '95%',       // Don't take full width
   },
   userMessage: {
-    backgroundColor: '#007AFF',  // Blue for user
+    backgroundColor: '#004660',  // Blue for user
     alignSelf: 'flex-end',       // Align to right
   },
   assistantMessage: {
-    backgroundColor: 'white',    // White for assistant
+    backgroundColor: '#292a2c',    // White for assistant
     alignSelf: 'flex-start',     // Align to left
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
   },
   messageText: {
-    fontSize: 16,
+    fontSize: 18,
+    textAlign: 'left',     // Ensure consistent text alignment
     // Color is now dynamic in the component
   },
   timestamp: {
@@ -381,10 +392,8 @@ const styles = StyleSheet.create({
   },
   inputContainer: {
     flexDirection: 'row',        // Horizontal layout
-    padding: 16,
-    backgroundColor: 'white',
-    borderTopWidth: 1,
-    borderTopColor: '#e0e0e0',
+    padding: 10,                 // Reduced from 16 to 10
+    backgroundColor: 'transparent',
     alignItems: 'flex-end',      // Align items to bottom for better voice button alignment
   },
   textInput: {
@@ -394,23 +403,21 @@ const styles = StyleSheet.create({
     backgroundColor: '#f8f8f8',  // Light gray background like Google Messages
     borderRadius: 25,            // More rounded like Google Messages
     paddingHorizontal: 16,
-    paddingVertical: 8,
-    marginRight: 8,              // Space for button on right
-    fontSize: 16,
+    paddingVertical: 14,
+    marginRight: 6,              // Reduced from 10 to 6
+    fontSize: 18,
     maxHeight: 100,              // Limit height for multiline
-    minHeight: 40,               // Minimum height
+    minHeight: 48,               // Minimum height (increased to match button)
   },
-  textInputWithText: {
-    paddingTop: 10, // Adjust padding when text is present
-  },
+
   sendButton: {
     backgroundColor: '#007AFF',
-    borderRadius: 20,            // Circular button
-    width: 40,                   // Fixed width for circle
-    height: 40,                  // Fixed height for circle
+    borderRadius: 24,            // Circular button (increased for larger size)
+    width: 48,                   // Fixed width for circle (matches textbox height)
+    height: 48,                  // Fixed height for circle (matches textbox height)
     justifyContent: 'center',
     alignItems: 'center',
-    marginLeft: 8,               // Space from text input
+    marginLeft: 4,               // Reduced from 8 to 4
   },
   sendButtonDisabled: {
     backgroundColor: '#ccc',
@@ -418,12 +425,12 @@ const styles = StyleSheet.create({
   },
   voiceButtonCircular: {
     backgroundColor: '#007AFF', // Blue for circular voice button
-    borderRadius: 20,
-    width: 40,
-    height: 40,
+    borderRadius: 24,           // Circular button (increased for larger size)
+    width: 48,                  // Fixed width for circle (matches textbox height)
+    height: 48,                 // Fixed height for circle (matches textbox height)
     justifyContent: 'center',
     alignItems: 'center',
-    marginLeft: 8,               // Space from text input
+    marginLeft: 4,               // Reduced from 8 to 4
   },
   voiceButtonRecording: {
     backgroundColor: '#FF3B30', // Red for recording

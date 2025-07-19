@@ -104,6 +104,8 @@ For FLEXIBLE TIMES (e.g., "anytime after 5pm", "sometime tomorrow"):
 IMPORTANT: Never create overlapping events without explicit user permission.
 IMPORTANT: Never delete events without explicit user confirmation.
 
+Ensure that all responses are in plain text. Do not use markdown.
+
 TONE: Be helpful, efficient, and proactive. Confirm details clearly after creating events and always confirm before deleting events."""
             
             messages = state["messages"]
