@@ -42,3 +42,29 @@ htmlcov/
 # Temporary files
 *.tmp
 *.temp 
+
+# React Native / Expo Mobile App
+mobile/CalendarAgentMobile/node_modules/
+mobile/CalendarAgentMobile/.expo/
+mobile/CalendarAgentMobile/dist/
+mobile/CalendarAgentMobile/web-build/
+mobile/CalendarAgentMobile/.expo-shared/
+
+# NPM/Yarn debug logs
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+
+# Mobile app builds and certificates
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.orig.*
+
+# Expo local environment
+mobile/CalendarAgentMobile/.env.local
+
+# Metro bundler cache
+mobile/CalendarAgentMobile/.metro-health-check* 

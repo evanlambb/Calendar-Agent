@@ -143,6 +143,7 @@ def stream_graph_updates(graph, config, user_input: str):
         logger.error(f"Error processing user input '{user_input}': {e}")
         print("I'm sorry, I encountered an error processing your request. Please try again.")
 
+
 def main():
     """Main application loop with improved error handling"""
     logger.info("Starting Calendar Agent...")
