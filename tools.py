@@ -1,3 +1,5 @@
+from langchain.tools import tool
+
 # @tool
 # def get_events(start_date: str, end_date: str = None, max_results: int = 50) -> str:
 #     """

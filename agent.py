@@ -12,13 +12,15 @@ from langchain_core.messages import BaseMessage
 import os
 from dotenv import load_dotenv
 
+from tools import *
+
 load_dotenv()
 
 
 class State(TypedDict):
     messages: Annotated[list, add_messages]
 
-tools = []
+tools = [get_weather]
 
 graph_builder = StateGraph(State)
 
@@ -31,7 +33,7 @@ llm_with_tools = llm.bind_tools(tools)
 def chatbot(state: State):
     return {"messages": [llm_with_tools.invoke(state["messages"])]}
 
-tool_node = ToolNode(tools=[tools])
+tool_node = ToolNode(tools=tools)
 
 graph_builder.add_node("chatbot", chatbot)
 graph_builder.add_node("tools", tool_node)
